@@ -1,0 +1,88 @@
+name: Deploy portfolio mirror
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build public mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://mounir-azzougui.pages.dev"
+          OUT="$RUNNER_TEMP/site"
+          mkdir -p "$OUT"
+
+          files=(
+            "index.html"
+            "auchan.html"
+            "mel.html"
+            "bi.html"
+            "auchan-apercu.html"
+            "404.html"
+            "script.js"
+            "assets/site/site.css"
+            "assets/site/bi.css"
+            "assets/site/case-shell.css"
+            "assets/site/case-shell.js"
+            "assets/site/theme-init.js"
+            "assets/site/auchan-redirect.js"
+            "assets/site/previews/data-overview.svg"
+            "assets/site/previews/auchan.png"
+            "assets/site/previews/auchan-en.png"
+            "assets/site/previews/bi.png"
+            "assets/site/previews/mel.png"
+            "assets/site/previews/portfolio-linkedin-v1.png"
+            "assets/auchan/apercu.css"
+            "assets/auchan/apercu.js"
+            "assets/auchan/i18n.js"
+            "assets/mel/case.css"
+            "assets/mel/report.js"
+            "assets/bi/architecture-pipeline.svg"
+            "assets/bi/dashboards/01-recherche-client.svg"
+            "assets/bi/dashboards/02-fiche-client.svg"
+            "assets/bi/dashboards/03-suivi-clients.svg"
+            "assets/bi/dashboards/04-qualite-contacts.svg"
+            "assets/bi/dashboards/05-recapitulatif-clients.svg"
+          )
+
+          for file in "${files[@]}"; do
+            mkdir -p "$OUT/$(dirname "$file")"
+            curl --fail --silent --show-error --location \
+              "$BASE/$file" \
+              --output "$OUT/$file"
+          done
+
+          # GitHub Pages should identify itself as the public mirror in metadata.
+          find "$OUT" -type f -name '*.html' -print0 | xargs -0 sed -i \
+            's#https://mounir-azzougui.pages.dev/#https://mounir-azzougui.github.io/#g'
+
+          touch "$OUT/.nojekyll"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
