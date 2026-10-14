@@ -73,6 +73,22 @@ jobs:
           find "$OUT" -type f -name '*.html' -print0 | xargs -0 sed -i \
             's#https://mounir-azzougui.pages.dev/#https://mounir-azzougui.github.io/#g'
 
+          # Privacy-friendly aggregate audience measurement for the public GitHub Pages mirror.
+          ANALYTICS='<!-- Cloudflare Web Analytics --><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='"'"'{"token":"9c23a7dacb2745bd83a763b678c73dd6"}'"'"'></script><!-- End Cloudflare Web Analytics -->'
+          export ANALYTICS
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'site'
+          snippet = os.environ['ANALYTICS']
+          for path in root.rglob('*.html'):
+              text = path.read_text(encoding='utf-8')
+              if 'static.cloudflareinsights.com/beacon.min.js' not in text:
+                  text = text.replace('</head>', f'{snippet}\n</head>', 1)
+                  path.write_text(text, encoding='utf-8')
+          PY
+
           touch "$OUT/.nojekyll"
 
       - name: Configure GitHub Pages
